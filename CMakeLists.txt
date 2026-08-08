@@ -13,6 +13,11 @@
 # files follow it. Keep it matching ^[a-z0-9_]{1,25}$ (it becomes the
 # .llext filename on the device, and must equal your future registry-entry
 # name in the rgb-sunglasses repo).
+#
+# C or C++: the build uses src/main.cpp when it exists, else src/main.c
+# (same preference as the firmware repo's own extension build). To go C++,
+# copy examples/cpp-waves/main.cpp to src/main.cpp — see "Writing your
+# extension in C++" in the README.
 
 cmake_minimum_required(VERSION 3.21)
 
@@ -32,4 +37,8 @@ project(my_extension C CXX)
 
 include("${RGBX_SDK_DIR}/cmake/rgbx-sdk-config.cmake")
 
-rgbx_add_extension(${PROJECT_NAME} SOURCES src/main.c)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
+    rgbx_add_extension(${PROJECT_NAME} SOURCES src/main.cpp)
+else()
+    rgbx_add_extension(${PROJECT_NAME} SOURCES src/main.c)
+endif()
