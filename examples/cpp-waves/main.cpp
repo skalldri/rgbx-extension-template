@@ -23,6 +23,10 @@
  *    (exported by firmware v3.1.0+), but double-precision (sin, pow, any
  *    expression that promotes to double) is not — the build gate rejects
  *    it. Write float literals with the f suffix.
+ *  - keep any phase/angle accumulator BOUNDED — see kPeriodMs below. This
+ *    one bites hard and late: an unwrapped accumulator runs at full speed
+ *    for the first couple of minutes and then silently gets several times
+ *    slower, which no short test catches.
  *
  * This example: three sine waves interfere across the panel, tinted by a
  * BLE-tunable color, with speed and inversion parameters — the classic
@@ -37,11 +41,28 @@ namespace {
 
 constexpr float kTau = 6.2831853f;
 
+/* Wrap the phase accumulator, and pick the period so the wrap is seamless.
+ *
+ * picolibc's sinf() only takes its cheap argument-reduction path while
+ * |x| <= 2^7*(pi/2) = 201.06; past that it falls back to a multi-precision
+ * reduction that costs several times more and keeps growing with the
+ * argument. So a free-running accumulator makes an animation quietly slow
+ * down minutes after it starts — this really happened to the plasma
+ * extension (skalldri/rgb-sunglasses#304).
+ *
+ * 20*pi s works here because the three rates below (1.0, 0.7, 1.3 rad/s) are
+ * commensurate — 10 : 7 : 13 on a 0.1 rad/s grid — so all three phases land
+ * back on their starting values together. Pick your own period the same way:
+ * the smallest time at which every rate you use has completed a whole number
+ * of cycles. If yours don't share one, fmodf(phase, kTau) per wave also works.
+ */
+constexpr uint32_t kPeriodMs = 62832u; /* 20*pi s, to whole ms */
+
 class CppWaves : public rgbx::Animation {
    public:
     void tick(uint32_t dt_ms) override {
         /* Speed is a percentage of nominal (50 == 1x). */
-        t_ms_ += dt_ms * paramU32(0) / 50u;
+        t_ms_ = (t_ms_ + dt_ms * paramU32(0) / 50u) % kPeriodMs;
         const float t = static_cast<float>(t_ms_) * 0.001f;
 
         const uint32_t color = paramColor(1);
@@ -75,7 +96,9 @@ class CppWaves : public rgbx::Animation {
         }
     }
 
-    /* Shuffle's good-switch-point: once per full cycle of the first wave. */
+    /* Shuffle's good-switch-point: once per full cycle of the first wave.
+     * (kPeriodMs isn't a multiple of 1000, so this window shifts phase once
+     * per wrap. Harmless — it still opens about once a second.) */
     bool goodMoment() const override { return (t_ms_ % 1000u) < 40u; }
 
    private:
