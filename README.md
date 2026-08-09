@@ -104,9 +104,61 @@ The build gates enforce most of this, but know the constraints:
 - **≤ 24 KB** total loaded size (build gate checks this).
 - **Globals reset on every activation** — the firmware reloads your extension
   each time it's selected; persist nothing.
+- **Bound any phase accumulator you feed to `sinf`/`cosf`/`tanf`.** See below —
+  this one is not caught by any gate and has bitten two shipped extensions.
 - Callable firmware functions are exactly the SDK's `arm/allowed-symbols.txt`:
   the math set above plus `str*`/`mem*` and `printk` (output shows in the
   simulator's console and the device's debug shell).
+
+## The trig cliff: bound your phase accumulators
+
+The single easiest way to ship a slow extension, and the one gate that cannot
+catch it. Both extensions currently in the community registry shipped with this
+bug ([rgb-sunglasses#304](https://github.com/skalldri/rgb-sunglasses/issues/304)).
+
+The device's `sinf`/`cosf`/`tanf` take a cheap argument reduction only while
+`|x| <= 201.06`. Above that they fall into a multi-precision reduction that costs
+several times more **and keeps getting more expensive as the argument grows**.
+
+So this — the obvious way to write a moving animation — degrades over time:
+
+```cpp
+t_ms_ += dt_ms * paramU32(0) / 50u;              // free-running: BAD
+const float t = static_cast<float>(t_ms_) * 0.001f;
+... sinf(fx * kTau + t * 1.1f) ...               // |arg| crosses 201 after ~3 min
+```
+
+It is nasty because it is invisible to every quick check: the animation runs at
+full speed for the first minute or two, and the accumulator resets every time the
+extension is activated — so it looks perfect right after you select it, every time.
+
+**Fix: wrap the accumulator at a period where every rate you use completes a whole
+number of cycles.**
+
+```cpp
+/* Rates 1.1, 0.7, 1.7 rad/s are 11 : 7 : 17 on a 0.1 grid, so all three phases
+ * return to their exact starting values after 20*pi s. The wrap is seamless, and
+ * the argument is bounded for ANY speed value -- the bound is on the accumulator,
+ * not the rate. */
+constexpr uint32_t kPeriodMs = 62832u;           // 20*pi s
+t_ms_ = (t_ms_ + dt_ms * paramU32(0) / 50u) % kPeriodMs;
+```
+
+Costs one multiply per tick, nothing per pixel. `examples/cpp-waves/main.cpp`
+shows it in context.
+
+If your rates share no common period, reduce each phase with `fmodf` instead — but
+`fmodf` **keeps the sign of its dividend**, so a phase that can go negative lands in
+`(-2*pi, 0]`. That is fine passed straight to `sinf`/`cosf`, which accept negative
+arguments; it is *not* fine if you then index a lookup table with it. Add the period
+back when the result is negative.
+
+**How to check it on hardware:** leave the animation running for several minutes on
+one uninterrupted activation, then read `ext stats` — switching animations in between
+zeroes the counters. Watch the device console for `Render overran the tick interval`,
+which shows up long before the per-tick CPU budget does (the budget sits well above
+the render interval and will not catch this). Raising your speed parameter compresses
+the timeline proportionally.
 
 ## Updating the SDK pin
 
