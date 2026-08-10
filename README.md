@@ -8,7 +8,7 @@ hosted web simulator.
 
 ## Documentation
 
-- **[Getting started: your first extension](https://rgb-sunglasses.autom8ed.com/api/md_fw_2extensions_2getting-started.html)**
+- **[Getting started: your first extension](https://rgb-sunglasses.autom8ed.com/api/getting-started.html)**
   — a start-to-finish walkthrough that builds a working extension and explains
   each concept as it uses it: declaring parameters, reading the IMU/audio/button
   inputs, drawing pixels, and the good-moment signal. Ends with complete C and
@@ -45,7 +45,7 @@ constraints the build gates enforce.
    parameter type and every input source) and iterate. Prefer C++? See
    "Writing your extension in C++" below. If the ABI isn't obvious from the
    example, the
-   [getting started guide](https://rgb-sunglasses.autom8ed.com/api/md_fw_2extensions_2getting-started.html)
+   [getting started guide](https://rgb-sunglasses.autom8ed.com/api/getting-started.html)
    walks through the same ground one concept at a time.
 5. **Rename your extension**: change `project(my_extension ...)` in
    `CMakeLists.txt`. The name must match `^[a-z0-9_]{1,25}$` — it becomes the
