@@ -6,6 +6,24 @@ no firmware-repo checkout and no Zephyr toolchain. One C (or C++) file becomes
 both a device-loadable `.llext` and a `.wasm` you can test instantly in the
 hosted web simulator.
 
+## Documentation
+
+- **[Getting started: your first extension](https://rgb-sunglasses.autom8ed.com/api/md_fw_2extensions_2getting-started.html)**
+  — a start-to-finish walkthrough that builds a working extension and explains
+  each concept as it uses it: declaring parameters, reading the IMU/audio/button
+  inputs, drawing pixels, and the good-moment signal. Ends with complete C and
+  C++ listings. **Start here if this is your first extension.**
+- **[API reference](https://rgb-sunglasses.autom8ed.com/api/)** — every type,
+  macro and function in the rgbx ABI, generated from the headers this template
+  builds against. Handy jumping-off points:
+  [`rgbx_api.h`](https://rgb-sunglasses.autom8ed.com/api/rgbx__api_8h.html)
+  (the flat C ABI) and
+  [`rgbx::Animation`](https://rgb-sunglasses.autom8ed.com/api/classrgbx_1_1Animation.html)
+  (the C++ wrapper).
+
+This README covers the template itself — building, publishing, and the sandbox
+constraints the build gates enforce.
+
 ## Quick start
 
 1. **Use this template** (or fork) → clone your new repo.
@@ -25,7 +43,10 @@ hosted web simulator.
    inputs, brightness behavior and all.
 4. Edit `src/main.c` (it's the kitchen-sink "hello" reference — every
    parameter type and every input source) and iterate. Prefer C++? See
-   "Writing your extension in C++" below.
+   "Writing your extension in C++" below. If the ABI isn't obvious from the
+   example, the
+   [getting started guide](https://rgb-sunglasses.autom8ed.com/api/md_fw_2extensions_2getting-started.html)
+   walks through the same ground one concept at a time.
 5. **Rename your extension**: change `project(my_extension ...)` in
    `CMakeLists.txt`. The name must match `^[a-z0-9_]{1,25}$` — it becomes the
    `.llext` filename on the device and must equal your future registry-entry
@@ -41,7 +62,8 @@ cp examples/cpp-waves/main.cpp src/main.cpp
 ./build.sh
 ```
 
-The `rgbx::Animation` wrapper (in the SDK's `include/rgbx/rgbx_animation.h`)
+The [`rgbx::Animation`](https://rgb-sunglasses.autom8ed.com/api/classrgbx_1_1Animation.html)
+wrapper (in the SDK's `include/rgbx/rgbx_animation.h`)
 replaces the raw ABI boilerplate: subclass it, override `tick(dt_ms)`, and
 declare everything with one `RGBX_ANIMATION(Class, "Name", 40, 12, params...)`
 macro — it emits and exports all the ABI symbols for you. You get typed
@@ -93,7 +115,9 @@ The build gates enforce most of this, but know the constraints:
 - **40×12 framebuffer**, RGB8. Render near full-scale (255) channel values —
   the firmware applies a global brightness factor (default 0.02), so dim
   drawing is invisible on the panel.
-- **≤ 16 parameters, ≤ 4 of them strings** (see the manifest in `src/main.c`).
+- **≤ 16 parameters, ≤ 4 of them strings** (see the manifest in `src/main.c`,
+  or [`rgbx_manifest`](https://rgb-sunglasses.autom8ed.com/api/structrgbx__manifest.html)
+  in the API reference).
 - **No heap, no exceptions, no RTTI.**
 - **Single-precision math only.** Firmware v3.1.0+ exports a curated libm set
   (`sinf`, `cosf`, `tanf`, `atan2f`, `sqrtf`, `expf`, `logf`, `powf`, `fmodf`,
