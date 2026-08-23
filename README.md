@@ -37,6 +37,13 @@ constraints the build gates enforce.
    Prerequisites: bash, cmake ≥ 3.21, Node.js ≥ 20, curl, tar
    (Linux or macOS; on Windows use WSL).
 
+   `build.sh` checks the Node version before it configures anything — the
+   wasm gate (`check-wasm.mjs`) needs ≥ 20, and an older one fails the wasm
+   link with a bare `SyntaxError` from inside the SDK. If you upgrade Node
+   after a build, re-run `./build.sh -URGBX_NODE` (or delete `build/`):
+   CMake cached the old interpreter's path at configure time and keeps
+   using it otherwise.
+
 3. **Test without hardware**: drag `build/wasm/my_extension.wasm` onto
    <https://rgb-sunglasses.autom8ed.com/sim/>. The simulator runs your real
    code against the firmware's tick semantics — parameters, IMU/audio/button
