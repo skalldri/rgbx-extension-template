@@ -22,8 +22,29 @@ jobs:
           path: ~/.cache/rgb-sunglasses
           key: toolchains-${{ hashFiles('cmake/fw-release.cmake') }}
 
-      - name: Build both targets (strict toolchain)
+      # Every preset build.sh knows about. The rgbx-v2 one runs the SDK's
+      # post-link pass, its structural gate and tick oracle, and the package
+      # builder inside the build, so a module the firmware would refuse fails
+      # this step rather than reaching a device.
+      - name: Build every target (strict toolchain)
         run: ./build.sh -DRGBX_STRICT_TOOLCHAIN=ON
+
+      # Rebuilding an unchanged tree must give the same package back. Build
+      # it a second time in a differently named directory and require
+      # identical bytes: reusing the same binaryDir would compare two builds
+      # that could both embed the same absolute path and still look
+      # reproducible. This checks reproducibility on one runner, not byte
+      # identity across platforms. The SDK and the toolchains are already
+      # resolved by then, so it costs a compile, not a download.
+      - name: Check the RGBX package is reproducible
+        run: |
+          cmake -S . -B build/rgbx-v2-repro -DRGBX_TARGET=rgbx-v2 -DRGBX_STRICT_TOOLCHAIN=ON
+          cmake --build build/rgbx-v2-repro
+          # Glob rather than name the package: it is called after the
+          # project(), which a fork renames, and each directory holds exactly
+          # one. Spelling my_extension here would fail a correct rename.
+          cmp build/rgbx-v2/*.rgbx build/rgbx-v2-repro/*.rgbx
+          sha256sum build/rgbx-v2/*.rgbx
 
       - uses: actions/upload-artifact@v4
         with:
@@ -31,3 +52,4 @@ jobs:
           path: |
             build/arm/*.llext
             build/wasm/*.wasm
+            build/rgbx-v2/*.rgbx
